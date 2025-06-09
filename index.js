@@ -33,8 +33,13 @@ async function run() {
         // collections
         const cartCollection = client.db("bistro_restaurant").collection("cartCollection")
 
-        app.get('/', (req, res) => {
-            res.send("Donee")
+
+        // Cart Collection
+        app.get("/carts", async (req, res) => {
+            const email = req.query.email
+            const query = { user: email }
+            const result = await cartCollection.find(query).toArray();
+            res.send(result)
         })
 
         app.post('/carts', async (req, res) => {
