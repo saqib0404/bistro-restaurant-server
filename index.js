@@ -32,6 +32,7 @@ async function run() {
 
         // collections
         const cartCollection = client.db("bistro_restaurant").collection("cartCollection")
+        const userCollection = client.db("bistro_restaurant").collection("userCollection")
 
 
         // Cart Collection
@@ -52,6 +53,13 @@ async function run() {
             const id = req.params.id
             const query = { _id: new ObjectId(id) }
             const result = await cartCollection.deleteOne(query)
+            res.send(result)
+        })
+
+        //  User Collection
+        app.post('/users', async (req, res) => {
+            const user = req.body
+            const result = await userCollection.insertOne(user)
             res.send(result)
         })
 
