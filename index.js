@@ -50,6 +50,7 @@ async function run() {
         // collections
         const cartCollection = client.db("bistro_restaurant").collection("cartCollection")
         const userCollection = client.db("bistro_restaurant").collection("userCollection")
+        const menuCollection = client.db("bistro_restaurant").collection("menuCollection")
 
         // jwt
         app.post('/jwt', (req, res) => {
@@ -123,23 +124,36 @@ async function run() {
         })
 
         // Cart Collection
-        app.get("/carts",  async (req, res) => {
+        // TODO: verify token
+        app.get("/carts", async (req, res) => {
             const email = req.query.email
             const query = { user: email }
             const result = await cartCollection.find(query).toArray();
             res.send(result)
         })
 
-        app.post('/carts',verifyToken, async (req, res) => {
+        app.post('/carts', verifyToken, async (req, res) => {
             const item = req.body
             const result = await cartCollection.insertOne(item)
             res.send(result)
         })
 
-        app.delete('/carts/:id',verifyToken, async (req, res) => {
+        app.delete('/carts/:id', verifyToken, async (req, res) => {
             const id = req.params.id
             const query = { _id: new ObjectId(id) }
             const result = await cartCollection.deleteOne(query)
+            res.send(result)
+        })
+
+        // Menu
+        app.get("/menus", async (req, res) => {
+            const result = await menuCollection.find().toArray();
+            res.send(result)
+        })
+
+        app.post('/menus', verifyToken, verifyAdmin, async (req, res) => {
+            const menuItem = req.body
+            const result = await menuCollection.insertOne(menuItem)
             res.send(result)
         })
 
