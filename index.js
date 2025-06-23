@@ -124,11 +124,17 @@ async function run() {
         })
 
         // Cart Collection
-        // TODO: verify token
-        app.get("/carts", async (req, res) => {
+        app.get("/carts", verifyToken, async (req, res) => {
             const email = req.query.email
             const query = { user: email }
             const result = await cartCollection.find(query).toArray();
+            res.send(result)
+        })
+
+        app.get("/carts-length", async (req, res) => {
+            const email = req.query.email
+            const query = { user: email }
+            const result = (await cartCollection.find(query).toArray()).length;
             res.send(result)
         })
 
@@ -155,6 +161,16 @@ async function run() {
             const menuItem = req.body
             const result = await menuCollection.insertOne(menuItem)
             res.send(result)
+        })
+
+        app.delete('/menus/:id', verifyToken, verifyAdmin, async (req, res) => {
+            const id = req.params.id
+            const query = { _id: new ObjectId(id) }
+            const menuitemQuery = await menuCollection.findOne(query)
+            console.log(menuitemQuery);
+
+            // const result = await menuCollection.deleteOne(query)
+            // res.send(result)
         })
 
     } finally {
