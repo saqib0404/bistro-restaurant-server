@@ -166,11 +166,10 @@ async function run() {
         app.delete('/menus/:id', verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id
             const query = { _id: new ObjectId(id) }
-            const menuitemQuery = await menuCollection.findOne(query)
-            console.log(menuitemQuery);
-
-            // const result = await menuCollection.deleteOne(query)
-            // res.send(result)
+            const cartQuery = { foodId: id }
+            const menuitemQuery = await cartCollection.deleteMany(cartQuery);
+            const result = await menuCollection.deleteOne(query)
+            res.send(result)
         })
 
     } finally {
