@@ -52,6 +52,7 @@ async function run() {
         const cartCollection = client.db("bistro_restaurant").collection("cartCollection")
         const userCollection = client.db("bistro_restaurant").collection("userCollection")
         const menuCollection = client.db("bistro_restaurant").collection("menuCollection")
+        const paymentCollection = client.db("bistro_restaurant").collection("paymentCollection")
 
         // jwt
         app.post('/jwt', (req, res) => {
@@ -192,7 +193,7 @@ async function run() {
         })
 
         // Payment intent
-        app.post('/create-payment-intent', async (req, res) => {
+        app.post('/create-payment-intent', verifyToken, async (req, res) => {
             const price = req.body.price;
             const amount = parseInt(price * 100)
             try {
@@ -208,6 +209,30 @@ async function run() {
 
             }
         });
+
+        app.get("/payments/:email", verifyToken, async (req, res) => {
+            const query = { email: req.params.email };
+            if (req.params.email !== req.decoded.user.email) {
+                return res.status(403).send({ message: "Forbiden Access" })
+            }
+            // console.log(req.decoded.email);
+            
+            const result = await paymentCollection.find(query).toArray();
+            res.send(result)
+        })
+
+        app.post("/payments", verifyToken, async (req, res) => {
+            const paymentDetails = req.body
+            console.log(paymentDetails);
+            const query = {
+                _id: {
+                    $in: paymentDetails.cartIds.map(id => new ObjectId(id))
+                }
+            }
+            const deleted = await cartCollection.deleteMany(query)
+            const result = await paymentCollection.insertOne(paymentDetails)
+            res.send(result)
+        })
 
 
     } finally {
