@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const app = express();
 const PORT = process.env.PORT || 8000
 
@@ -189,6 +190,25 @@ async function run() {
             const result = await menuCollection.deleteOne(query)
             res.send(result)
         })
+
+        // Payment intent
+        app.post('/create-payment-intent', async (req, res) => {
+            const price = req.body.price;
+            const amount = parseInt(price * 100)
+            try {
+                const paymentIntent = await stripe.paymentIntents.create({
+                    amount,
+                    currency: 'usd',
+                    payment_method_types: ['card']
+                });
+                res.send({ clientSecret: paymentIntent.client_secret });
+            } catch (error) {
+                res.status(500).send({ error: error.message });
+                console.log(error);
+
+            }
+        });
+
 
     } finally {
         // Ensures that the client will close when you finish/error
