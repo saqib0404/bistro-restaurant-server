@@ -27,12 +27,12 @@ const client = new MongoClient(uri, {
 // middlewares
 const verifyToken = (req, res, next) => {
     if (!req.headers.authorization) {
-        res.status(401).send({ message: "unathorized access" })
+        return res.status(401).send({ message: "unathorized access" })
     }
     const token = req.headers.authorization.split(' ')[1]
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
         if (err) {
-            res.status(401).send({ message: "unathorized access" })
+            return res.status(401).send({ message: "unathorized access" })
         } else {
             req.decoded = decoded
             next()
@@ -125,6 +125,77 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
+            const users = await userCollection.estimatedDocumentCount();
+            const orders = await paymentCollection.estimatedDocumentCount();
+            const products = await menuCollection.estimatedDocumentCount();
+            const revenueResult = await paymentCollection.aggregate([
+                {
+                    $group: {
+                        _id: null,
+                        totalRevenue: {
+                            $sum: {
+                                $toDouble: {
+                                    $substrBytes: ["$price", 1, -1] // Remove the `$` symbol
+                                }
+                            }
+                        }
+                    }
+                }
+            ]).toArray();
+
+            const revenue = revenueResult[0]?.totalRevenue || 0;
+            res.send({ users, orders, products, revenue })
+        })
+
+        app.get('/admin-sales-stats', verifyToken, verifyAdmin, async (req, res) => {
+            const stats = await paymentCollection.aggregate([
+                // Unwind the menuIds array
+                { $unwind: "$menuIds" },
+
+                // Convert menuIds string to ObjectId and do lookup
+                {
+                    $lookup: {
+                        from: "menuCollection",
+                        let: { menuIdStr: "$menuIds" },
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: {
+                                        $eq: ["$_id", { $toObjectId: "$$menuIdStr" }]
+                                    }
+                                }
+                            }
+                        ],
+                        as: "menuItem"
+                    }
+                },
+
+                // Flatten the result of lookup
+                { $unwind: "$menuItem" },
+
+                // Group by category
+                {
+                    $group: {
+                        _id: "$menuItem.category",
+                        count: { $sum: 1 }
+                    }
+                },
+
+                // Clean up the final output
+                {
+                    $project: {
+                        _id: 0,
+                        category: "$_id",
+                        count: 1
+                    }
+                }
+            ]).toArray();
+
+            res.send(stats)
+        })
+
+
         // Cart Collection
         app.get("/carts", verifyToken, async (req, res) => {
             const email = req.query.email
@@ -205,8 +276,6 @@ async function run() {
                 res.send({ clientSecret: paymentIntent.client_secret });
             } catch (error) {
                 res.status(500).send({ error: error.message });
-                console.log(error);
-
             }
         });
 
@@ -215,18 +284,15 @@ async function run() {
             if (req.params.email !== req.decoded.user.email) {
                 return res.status(403).send({ message: "Forbiden Access" })
             }
-            // console.log(req.decoded.email);
-            
             const result = await paymentCollection.find(query).toArray();
             res.send(result)
         })
 
         app.post("/payments", verifyToken, async (req, res) => {
             const paymentDetails = req.body
-            console.log(paymentDetails);
             const query = {
-                _id: {
-                    $in: paymentDetails.cartIds.map(id => new ObjectId(id))
+                foodId: {
+                    $in: paymentDetails.menuIds.map(id => id)
                 }
             }
             const deleted = await cartCollection.deleteMany(query)
